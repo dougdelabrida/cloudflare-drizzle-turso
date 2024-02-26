@@ -1,4 +1,8 @@
+import { ActionFunctionArgs, json } from "@remix-run/cloudflare";
 import type { MetaFunction } from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
+import { db } from "drizzle/db";
+import { notes } from "drizzle/schema";
 
 export const meta: MetaFunction = () => {
   return [
@@ -10,26 +14,40 @@ export const meta: MetaFunction = () => {
   ];
 };
 
+export async function action({ request }: ActionFunctionArgs) {
+  const bodyData = await request.formData();
+  const content = bodyData.get("content") as string | null;
+
+  if (content) {
+    const randomCharId = Math.random().toString(36).substring(7);
+    db.insert(notes).values({ content, id: randomCharId }).run();
+  }
+
+  return json({ ok: true });
+}
+
+export async function loader() {
+  const result = await db.select().from(notes).all();
+  return json({ notes: result });
+}
+
 export default function Index() {
+  const data = useLoaderData<typeof loader>();
+
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8" }}>
-      <h1>Welcome to Remix (with Vite and Cloudflare)</h1>
-      <ul>
-        <li>
-          <a
-            target="_blank"
-            href="https://developers.cloudflare.com/pages/framework-guides/deploy-a-remix-site/"
-            rel="noreferrer"
-          >
-            Cloudflare Pages Docs - Remix guide
-          </a>
-        </li>
-        <li>
-          <a target="_blank" href="https://remix.run/docs" rel="noreferrer">
-            Remix Docs
-          </a>
-        </li>
-      </ul>
+    <div>
+      <Form method="post">
+        <input type="text" name="content" />
+        <button type="submit">Add Note</button>
+      </Form>
+      <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8" }}>
+        <h1>Notes</h1>
+        <ul>
+          {data.notes.map((note, i) => (
+            <li key={`note.id-${i}`}>{note.content}</li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
